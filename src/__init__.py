@@ -1,1 +1,1 @@
-"""Agente de atendimento da Empório da Música."""
+"""Emporio musica main package."""

@@ -17,11 +17,12 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["src/tests"]
+testpaths = ["tests"]
 addopts = "-m 'not llm'"
 markers = [
     "llm: usa uma API real de LLM; requer chave e pode gerar custo",
 ]
 
 [tool.setuptools.packages.find]
-include = ["src*"]
+where = ["src"]
+include = ["emporio_agent*"]
