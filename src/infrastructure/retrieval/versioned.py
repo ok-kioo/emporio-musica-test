@@ -14,7 +14,7 @@ import subprocess
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from src.application.policies.ports import EmbeddingClient, VectorRecord
+from src.application.policies.ports import EmbeddingClient, PolicyVectorStore, VectorRecord
 from src.domain import Source, ToolResult, ToolStatus
 
 
@@ -54,6 +54,49 @@ class DeterministicHashEmbeddingClient:
             magnitude = math.sqrt(sum(value * value for value in vector))
             vectors.append(tuple(value / magnitude for value in vector) if magnitude else tuple(vector))
         return vectors
+
+
+class VectorPolicyIndex:
+    """Indexes PDF chunks through injected embedding and vector-store ports."""
+
+    def __init__(self, store: PolicyVectorStore, embeddings: EmbeddingClient, *, relevance_threshold: float = 0.35) -> None:
+        self._store = store
+        self._embeddings = embeddings
+        self._threshold = relevance_threshold
+
+    def index(self, *, policy_version: str, document: Path, document_id: str) -> int:
+        chunks = _chunks_from_pdf(document, policy_version, document_id)
+        if not chunks:
+            raise ValueError("Policy manual did not yield any indexable chunks")
+        vectors = self._embeddings.embed([chunk.text for chunk in chunks])
+        if len(vectors) != len(chunks) or any(not vector for vector in vectors):
+            raise ValueError("Embedding client returned an invalid vector batch")
+        records = [VectorRecord(chunk.policy_version, chunk.document_id, chunk.section, chunk.page, chunk.chunk_id, chunk.text, vector) for chunk, vector in zip(chunks, vectors, strict=True)]
+        self._store.replace(policy_version, records)
+        return len(records)
+
+    def delete(self, policy_version: str) -> None:
+        self._store.delete(policy_version)
+
+    def count(self, policy_version: str) -> int:
+        return self._store.count(policy_version)
+
+    def sections(self, policy_version: str) -> set[str]:
+        return self._store.sections(policy_version)
+
+    def document_sections(self, document: Path) -> set[str]:
+        return {match.group(1) for page in _pdf_pages(document) for match in _SECTION.finditer(page)}
+
+    def retrieve(self, query: str, *, policy_version: str, limit: int = 3) -> ToolResult:
+        if limit < 1:
+            raise ValueError("limit must be positive")
+        vectors = self._embeddings.embed([query])
+        if len(vectors) != 1 or not vectors[0]:
+            return ToolResult(status=ToolStatus.INSUFFICIENT_EVIDENCE, message="The query could not be embedded.")
+        selected = [(score, record) for score, record in self._store.search(policy_version, vectors[0], limit) if score >= self._threshold]
+        if not selected:
+            return ToolResult(status=ToolStatus.INSUFFICIENT_EVIDENCE, message="No policy passage met the relevance threshold.")
+        return ToolResult(status=ToolStatus.SUCCESS, data=[{"text": record.text, "score": score, "policy_version": record.policy_version} for score, record in selected], sources=tuple(Source(source=record.document_id, page=record.page, section=record.section, chunk_id=record.chunk_id) for _, record in selected))
 
 
 class FilePolicyIndex:

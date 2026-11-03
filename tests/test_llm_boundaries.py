@@ -1,7 +1,7 @@
 import pytest
 
 from src.application.privacy import minimize_evidence, redact_text
-from src.infrastructure.llm import OpenRouterEmbeddingClient, clients_from_environment
+from src.infrastructure.llm import OpenRouterDecisionClient, OpenRouterEmbeddingClient, clients_from_environment
 
 
 def test_provider_bound_data_is_minimized_and_redacted() -> None:
@@ -36,3 +36,23 @@ def test_embedding_adapter_validates_provider_vectors(monkeypatch: pytest.Monkey
     vectors = OpenRouterEmbeddingClient(api_key="embedding-key").embed(["primeiro", "segundo"])
 
     assert vectors == [(1.0, 0.0), (0.0, 1.0)]
+
+
+def test_decision_adapter_uses_chat_completion_json(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured = {}
+
+    def fake_post(_endpoint, _key, body):
+        captured.update(body)
+        return {"choices": [{"message": {"content": '{"choice":"policy","probabilities":{"policy":0.95}}'}}]}
+
+    monkeypatch.setattr("src.infrastructure.llm.openrouter._post_json", fake_post)
+
+    decision = OpenRouterDecisionClient(api_key="decision-key").choose(
+        state="Como funciona a devolução?",
+        question="Classify the intent.",
+        criteria={"policy": "Policy question."},
+    )
+
+    assert decision.choice == "policy"
+    assert decision.probabilities == {"policy": 0.95}
+    assert captured["response_format"] == {"type": "json_object"}

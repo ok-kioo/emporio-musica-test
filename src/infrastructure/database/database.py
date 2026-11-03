@@ -28,7 +28,9 @@ class IngestionSummary:
 
 def create_database_engine(database_url: str | Path) -> Engine:
     """Create an engine from a portable SQLAlchemy URL or a local SQLite path."""
-    engine = create_engine(_database_url(database_url))
+    normalized_url = _database_url(database_url)
+    _ensure_sqlite_directory(normalized_url)
+    engine = create_engine(normalized_url)
     if engine.dialect.name == "sqlite":
         event.listen(engine, "connect", _enable_sqlite_foreign_keys)
     initialize_schema(engine)
@@ -63,6 +65,14 @@ def _database_url(database_url: str | Path) -> str:
         return str(make_url(database_url))
     except Exception as error:
         raise ValueError("database_url must be a SQLAlchemy URL or filesystem path") from error
+
+
+def _ensure_sqlite_directory(database_url: str) -> None:
+    """Create the parent directory for a file-backed SQLite URL before connecting."""
+    parsed = make_url(database_url)
+    if not parsed.drivername.startswith("sqlite") or not parsed.database or parsed.database == ":memory:":
+        return
+    Path(parsed.database).expanduser().parent.mkdir(parents=True, exist_ok=True)
 
 
 def _enable_sqlite_foreign_keys(dbapi_connection, _connection_record) -> None:

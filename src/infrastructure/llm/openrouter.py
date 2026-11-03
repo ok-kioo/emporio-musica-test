@@ -26,16 +26,37 @@ class OpenRouterClients:
 class OpenRouterDecisionClient:
     api_key: str
     model: str = "respan/span-01-lite:free"
-    endpoint: str = "https://openrouter.ai/api/alpha/decisions"
+    endpoint: str = "https://openrouter.ai/api/v1/chat/completions"
 
     def choose(self, *, state: str, question: str, criteria: Mapping[str, str]) -> DecisionChoice:
+        """Classify only a bounded intent through the OpenAI-compatible endpoint."""
         body = {
             "model": self.model,
-            "state": state,
-            "questions": {"intent": {"type": "choice", "instructions": question, "criteria": dict(criteria)}},
+            "temperature": 0,
+            "response_format": {"type": "json_object"},
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are an intent classifier. Return JSON only with `choice` and `probabilities`. "
+                        "`choice` must be exactly one allowed intent. `probabilities` must map every allowed "
+                        "intent to a number from 0 to 1. Do not escalate or answer the customer."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": json.dumps(
+                        {"message": state, "task": question, "allowed_intents": dict(criteria)}, ensure_ascii=False
+                    ),
+                },
+            ],
         }
         payload = _post_json(self.endpoint, self.api_key, body)
-        answer = payload.get("answers", {}).get("intent", {})
+        try:
+            content = payload["choices"][0]["message"]["content"]
+            answer = json.loads(content)
+        except (KeyError, IndexError, TypeError, json.JSONDecodeError) as error:
+            raise OpenRouterError("decision response did not include valid JSON content") from error
         choice, probabilities = answer.get("choice"), answer.get("probabilities")
         if not isinstance(choice, str) or not isinstance(probabilities, dict):
             raise OpenRouterError("decision response did not include a valid choice")
@@ -47,7 +68,7 @@ class OpenRouterEmbeddingClient:
     """Semantic embedding adapter, configured explicitly by the composition root."""
 
     api_key: str
-    model: str = "openai/text-embedding-3-small"
+    model: str = "nvidia/nemotron-3-embed-1b:free"
     endpoint: str = "https://openrouter.ai/api/v1/embeddings"
 
     def embed(self, texts: list[str]) -> list[tuple[float, ...]]:
@@ -102,8 +123,18 @@ def _post_json(endpoint: str, api_key: str, body: Mapping[str, object]) -> dict:
     try:
         with urlopen(request, timeout=20) as response:
             payload = json.load(response)
-    except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as error:
-        raise OpenRouterError("OpenRouter request failed") from error
+    except HTTPError as error:
+        # The provider's body usually explains an invalid model, key, or quota.
+        # It never includes the request authorization header.
+        try:
+            detail = error.read().decode("utf-8", errors="replace").strip()
+        except OSError:
+            detail = ""
+        detail = detail[:500]
+        suffix = f": {detail}" if detail else ""
+        raise OpenRouterError(f"OpenRouter request failed with HTTP {error.code}{suffix}") from error
+    except (URLError, TimeoutError, json.JSONDecodeError) as error:
+        raise OpenRouterError(f"OpenRouter request failed: {error}") from error
     if not isinstance(payload, dict):
         raise OpenRouterError("OpenRouter response was not an object")
     return payload

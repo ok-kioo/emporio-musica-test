@@ -2,6 +2,6 @@
 """Retrieval adapters."""
 
 from .chroma_vector_store import ChromaPolicyVectorStore
-from .versioned import DeterministicHashEmbeddingClient, FilePolicyIndex, PolicyChunk
+from .versioned import DeterministicHashEmbeddingClient, FilePolicyIndex, PolicyChunk, VectorPolicyIndex
 
-__all__ = ["ChromaPolicyVectorStore", "DeterministicHashEmbeddingClient", "FilePolicyIndex", "PolicyChunk"]
+__all__ = ["ChromaPolicyVectorStore", "DeterministicHashEmbeddingClient", "FilePolicyIndex", "PolicyChunk", "VectorPolicyIndex"]
