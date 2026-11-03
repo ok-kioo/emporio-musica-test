@@ -6,6 +6,7 @@ import re
 from typing import Mapping
 
 from src.application.ports import DecisionClient
+from src.config import ROUTER_CONFIDENCE_THRESHOLD
 from src.application.privacy import redact_text
 from src.domain import AccessLevel
 
@@ -54,11 +55,14 @@ class DecisionModel:
 
 class RulesDecisionModel(DecisionModel):
     _HUMAN_PATTERN = re.compile(r"\b(atendente|humano|pessoa|gerente)\b", re.IGNORECASE)
+    _COMPLAINT_PATTERN = re.compile(r"\b(reclama(?:ç|c)(?:ão|ao)|insatisfeit|procon)\w*", re.IGNORECASE)
     _INJECTION_PATTERN = re.compile(r"ignore\s+(as\s+)?(instru|regra)|system\s+prompt|dados?\s+intern", re.IGNORECASE)
     _ORDER_PATTERN = re.compile(r"\bpedido\s*(?:n[ºo°.]?\s*)?(\d+)\b", re.IGNORECASE)
     _POLICY_PATTERN = re.compile(r"\b(troca|devolu|arrependimento|garantia|defeito|frete|parcel|pix|política)\w*", re.IGNORECASE)
     _DATA_PATTERN = re.compile(r"\b(preço|estoque|produto|catálogo|pedido|rastreio|entrega)\w*", re.IGNORECASE)
+    _ACCESSORY_PATTERN = re.compile(r"\b(corda|palheta|capotraste|cabo|afinador|suporte)\w*", re.IGNORECASE)
     _GREETING_PATTERN = re.compile(r"^\s*(oi|olá|ola|bom dia|boa tarde|boa noite)\W*$", re.IGNORECASE)
+    _FAREWELL_PATTERN = re.compile(r"^\s*(tchau|até logo|ate logo|obrigad[oa])\W*$", re.IGNORECASE)
 
     def decide(self, message: str, context: ConversationContext) -> Decision | None:
         del context
@@ -66,8 +70,12 @@ class RulesDecisionModel(DecisionModel):
             return Decision(Intent.OFF_TOPIC, 1.0, "Unsafe instruction pattern detected.", "decline_unsafe_request")
         if self._HUMAN_PATTERN.search(message):
             return Decision(Intent.CLARIFICATION, 1.0, "Customer requested human assistance.", "escalate_human", escalate=True, escalation_reason="human_requested")
+        if self._COMPLAINT_PATTERN.search(message):
+            return Decision(Intent.CLARIFICATION, 1.0, "Complaint requires human follow-up.", "escalate_human", escalate=True, escalation_reason="complaint")
         if self._GREETING_PATTERN.match(message):
             return Decision(Intent.CLARIFICATION, 1.0, "Greeting without a request.", "greet", needs_clarification=True)
+        if self._FAREWELL_PATTERN.match(message):
+            return Decision(Intent.CLARIFICATION, 1.0, "Farewell without a request.", "farewell", needs_clarification=False)
         order_match = self._ORDER_PATTERN.search(message)
         has_policy = bool(self._POLICY_PATTERN.search(message))
         if order_match and has_policy:
@@ -76,7 +84,7 @@ class RulesDecisionModel(DecisionModel):
             return Decision(Intent.DATA, 0.95, "Order reference detected.", "lookup_order", {"order_id": int(order_match.group(1))})
         if has_policy:
             return Decision(Intent.POLICY, 0.9, "Policy topic detected.", "retrieve_policy")
-        if self._DATA_PATTERN.search(message):
+        if self._DATA_PATTERN.search(message) or self._ACCESSORY_PATTERN.search(message):
             return Decision(Intent.DATA, 0.8, "Catalog or order data topic detected.", "lookup_data")
         return None
 
@@ -90,18 +98,27 @@ class LLMDecisionModel(DecisionModel):
         Intent.CLARIFICATION.value: "Intent cannot be determined safely from the message.",
     }
 
-    def __init__(self, client: DecisionClient, *, confidence_threshold: float = 0.85) -> None:
+    def __init__(self, client: DecisionClient, *, confidence_threshold: float = ROUTER_CONFIDENCE_THRESHOLD) -> None:
         self._client = client
         self._confidence_threshold = confidence_threshold
 
     def decide(self, message: str, context: ConversationContext) -> Decision:
         del context
-        response = self._client.choose(
-            state=redact_text(message),
-            question="Classify the customer's intent. Do not infer customer identity or authorize operations.",
-            criteria=self._CRITERIA,
-        )
-        confidence = response.probabilities.get(response.choice, 0.0)
+        try:
+            response = self._client.choose(
+                state=redact_text(message),
+                question="Classify the customer's intent. Do not infer customer identity or authorize operations.",
+                criteria=self._CRITERIA,
+            )
+            confidence = float(response.probabilities.get(response.choice, 0.0))
+        except Exception:
+            return Decision(
+                Intent.CLARIFICATION,
+                0.0,
+                "Decision provider was unavailable or returned an invalid response.",
+                "ask_clarifying_question",
+                needs_clarification=True,
+            )
         if response.choice not in self._CRITERIA or confidence < self._confidence_threshold:
             return Decision(Intent.CLARIFICATION, confidence, "Classifier confidence is insufficient.", "ask_clarifying_question", needs_clarification=True)
         intent = Intent(response.choice)

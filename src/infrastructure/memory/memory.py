@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from src.domain import Message, Session
 
 
-class InMemorySessionStore:
+class InMemorySessionRepository:
     def __init__(self) -> None:
         self._sessions: dict[str, Session] = {}
         self._messages: dict[str, list[Message]] = {}
@@ -25,7 +25,7 @@ class InMemorySessionStore:
         return sorted(self._messages.get(session_id, ()), key=lambda message: (message.created_at, message.id))
 
 
-class InMemoryRateLimiter:
+class InMemoryRateLimitRepository:
     def __init__(self) -> None:
         self._windows: dict[str, tuple[datetime, int]] = {}
 

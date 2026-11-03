@@ -5,7 +5,7 @@ from typing import Protocol
 from src.domain import Message, Session
 
 
-class SessionStoreRepository(Protocol):
+class SessionRepository(Protocol):
     def get(self, session_id: str) -> Session | None: ...
 
     def save(self, session: Session) -> None: ...

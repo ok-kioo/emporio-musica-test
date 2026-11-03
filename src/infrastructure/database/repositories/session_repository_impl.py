@@ -7,7 +7,7 @@ from src.domain import AccessLevel, Message, MessageRole, Session
 from src.infrastructure.database.schema import messages, rate_limits, sessions
 
 
-class SQLAlchemySessionStoreRepository:
+class SQLAlchemySessionRepository:
     def __init__(self, engine: Engine) -> None:
         self._engine = engine
 
@@ -33,7 +33,7 @@ class SQLAlchemySessionStoreRepository:
             rows = connection.execute(statement).mappings().all()
         return [_to_message(row) for row in rows]
 
-class SQLAlchemyRateLimiter:
+class SQLAlchemyRateLimitRepository:
     def __init__(self, engine: Engine) -> None:
         self._engine = engine
 

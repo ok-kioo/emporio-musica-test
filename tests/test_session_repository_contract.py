@@ -4,10 +4,10 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 
 from src.domain import AccessLevel, Message, MessageRole, Session
-from src.domain.repositories import RateLimiter, SessionStore
-from src.infrastructure.database import SQLAlchemyRateLimiter, SQLAlchemySessionStoreRepository, create_database_engine
+from src.domain.repositories import RateLimitRepository, SessionRepository
+from src.infrastructure.database import SQLAlchemyRateLimitRepository, SQLAlchemySessionRepository, create_database_engine
 from src.infrastructure.database.schema import customers
-from src.infrastructure.memory.memory import InMemoryRateLimiter, InMemorySessionStore
+from src.infrastructure.memory.memory import InMemoryRateLimitRepository, InMemorySessionRepository
 
 
 NOW = datetime(2025, 6, 1, 12, 0, tzinfo=timezone.utc)
@@ -21,23 +21,23 @@ def _session() -> Session:
 
 
 @pytest.fixture(params=["memory", "sqlite"])
-def session_store(request: pytest.FixtureRequest, tmp_path) -> SessionStore:
+def session_store(request: pytest.FixtureRequest, tmp_path) -> SessionRepository:
     if request.param == "memory":
-        return InMemorySessionStore()
+        return InMemorySessionRepository()
     engine = create_database_engine(tmp_path / "sessions.sqlite3")
     with engine.begin() as connection:
         connection.execute(customers.insert().values(customer_id=1, name="Test customer", phone="(67) 99812-3456", email="test@example.com", city="Campo Grande"))
-    return SQLAlchemySessionStoreRepository(engine)
+    return SQLAlchemySessionRepository(engine)
 
 
 @pytest.fixture(params=["memory", "sqlite"])
-def rate_limiter(request: pytest.FixtureRequest, tmp_path) -> RateLimiter:
+def rate_limiter(request: pytest.FixtureRequest, tmp_path) -> RateLimitRepository:
     if request.param == "memory":
-        return InMemoryRateLimiter()
-    return SQLAlchemyRateLimiter(create_database_engine(tmp_path / "rate-limits.sqlite3"))
+        return InMemoryRateLimitRepository()
+    return SQLAlchemyRateLimitRepository(create_database_engine(tmp_path / "rate-limits.sqlite3"))
 
 
-def test_session_store_contract_preserves_identity_policy_and_message_order(session_store: SessionStore) -> None:
+def test_session_store_contract_preserves_identity_policy_and_message_order(session_store: SessionRepository) -> None:
     session_store.save(_session())
     session_store.append_message(Message("m-2", "session-1", MessageRole.ASSISTANT, "Hello", NOW + timedelta(seconds=2)))
     session_store.append_message(Message("m-1", "session-1", MessageRole.CUSTOMER, "Help", NOW))
@@ -50,12 +50,12 @@ def test_session_store_contract_preserves_identity_policy_and_message_order(sess
     assert [message.id for message in session_store.list_messages("session-1")] == ["m-1", "m-2"]
 
 
-def test_session_store_contract_rejects_messages_for_unknown_sessions(session_store: SessionStore) -> None:
+def test_session_store_contract_rejects_messages_for_unknown_sessions(session_store: SessionRepository) -> None:
     with pytest.raises((ValueError, IntegrityError)):
         session_store.append_message(Message("m-1", "unknown", MessageRole.CUSTOMER, "Help", NOW))
 
 
-def test_rate_limiter_contract_enforces_limit_and_resets_window(rate_limiter: RateLimiter) -> None:
+def test_rate_limiter_contract_enforces_limit_and_resets_window(rate_limiter: RateLimitRepository) -> None:
     assert rate_limiter.consume("+5567999999999", limit=2, window_seconds=60, now=NOW)
     assert rate_limiter.consume("+5567999999999", limit=2, window_seconds=60, now=NOW)
     assert not rate_limiter.consume("+5567999999999", limit=2, window_seconds=60, now=NOW)
