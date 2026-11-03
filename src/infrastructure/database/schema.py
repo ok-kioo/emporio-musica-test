@@ -1,39 +1,16 @@
-"""SQLite database schema for the application."""
+"""SQLAlchemy Core metadata owned exclusively by infrastructure."""
 
-_SCHEMA = """
-CREATE TABLE IF NOT EXISTS categories (category_id INTEGER PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS products (
-    product_id INTEGER PRIMARY KEY, price_brl REAL NOT NULL, name TEXT NOT NULL,
-    category_id INTEGER NOT NULL REFERENCES categories(category_id), description TEXT NOT NULL,
-    stock_quantity INTEGER NOT NULL, status TEXT NOT NULL, specs TEXT NOT NULL, created_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS promotions (
-    promotion_id INTEGER PRIMARY KEY, product_id INTEGER NOT NULL REFERENCES products(product_id),
-    discount_percent REAL NOT NULL, description TEXT NOT NULL, is_active INTEGER NOT NULL
-);
-CREATE TABLE IF NOT EXISTS customers (
-    customer_id INTEGER PRIMARY KEY, name TEXT NOT NULL, phone TEXT NOT NULL, email TEXT NOT NULL, city TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS orders (
-    order_id INTEGER PRIMARY KEY, customer_id INTEGER NOT NULL REFERENCES customers(customer_id),
-    order_date TEXT NOT NULL, status TEXT NOT NULL, total_brl REAL NOT NULL, payment_method TEXT NOT NULL,
-    tracking_code TEXT, estimated_delivery TEXT, notes TEXT
-);
-CREATE TABLE IF NOT EXISTS order_items (
-    order_id INTEGER NOT NULL REFERENCES orders(order_id), product_id INTEGER NOT NULL REFERENCES products(product_id),
-    quantity INTEGER NOT NULL, PRIMARY KEY (order_id, product_id)
-);
-CREATE TABLE IF NOT EXISTS sessions (
-    session_id TEXT PRIMARY KEY, channel_phone TEXT NOT NULL, customer_id INTEGER REFERENCES customers(customer_id),
-    access_level INTEGER NOT NULL CHECK (access_level BETWEEN 0 AND 2), policy_version TEXT NOT NULL,
-    created_at TEXT NOT NULL, updated_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS messages (
-    message_id TEXT PRIMARY KEY, session_id TEXT NOT NULL REFERENCES sessions(session_id), role TEXT NOT NULL,
-    content TEXT NOT NULL, created_at TEXT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS messages_by_session ON messages(session_id, created_at, message_id);
-CREATE TABLE IF NOT EXISTS rate_limits (
-    rate_limit_key TEXT PRIMARY KEY, window_started_at TEXT NOT NULL, request_count INTEGER NOT NULL
-);
-"""
+from sqlalchemy import Boolean, CheckConstraint, Column, Date, DateTime, ForeignKey, Index, Integer, JSON, MetaData, Numeric, String, Table, Text
+
+
+metadata = MetaData()
+categories = Table("categories", metadata, Column("category_id", Integer, primary_key=True), Column("name", String(255), nullable=False), Column("description", Text, nullable=False))
+products = Table("products", metadata, Column("product_id", Integer, primary_key=True), Column("price_brl", Numeric(12, 2), nullable=False), Column("name", String(255), nullable=False), Column("category_id", ForeignKey("categories.category_id"), nullable=False), Column("description", Text, nullable=False), Column("stock_quantity", Integer, nullable=False), Column("status", String(32), nullable=False), Column("specs", JSON, nullable=False), Column("created_at", Date, nullable=False))
+promotions = Table("promotions", metadata, Column("promotion_id", Integer, primary_key=True), Column("product_id", ForeignKey("products.product_id"), nullable=False), Column("discount_percent", Numeric(5, 2), nullable=False), Column("description", Text, nullable=False), Column("is_active", Boolean, nullable=False))
+customers = Table("customers", metadata, Column("customer_id", Integer, primary_key=True), Column("name", String(255), nullable=False), Column("phone", String(64), nullable=False), Column("email", String(255), nullable=False), Column("city", String(255), nullable=False))
+orders = Table("orders", metadata, Column("order_id", Integer, primary_key=True), Column("customer_id", ForeignKey("customers.customer_id"), nullable=False), Column("order_date", Date, nullable=False), Column("status", String(32), nullable=False), Column("total_brl", Numeric(12, 2), nullable=False), Column("payment_method", String(32), nullable=False), Column("tracking_code", String(128)), Column("estimated_delivery", Date), Column("notes", Text))
+order_items = Table("order_items", metadata, Column("order_id", ForeignKey("orders.order_id"), primary_key=True), Column("product_id", ForeignKey("products.product_id"), primary_key=True), Column("quantity", Integer, nullable=False))
+sessions = Table("sessions", metadata, Column("session_id", String(64), primary_key=True), Column("channel_phone", String(64), nullable=False), Column("customer_id", ForeignKey("customers.customer_id")), Column("access_level", Integer, CheckConstraint("access_level BETWEEN 0 AND 2"), nullable=False), Column("policy_version", String(32), nullable=False), Column("created_at", DateTime(timezone=True), nullable=False), Column("updated_at", DateTime(timezone=True), nullable=False))
+messages = Table("messages", metadata, Column("message_id", String(64), primary_key=True), Column("session_id", ForeignKey("sessions.session_id"), nullable=False), Column("role", String(32), nullable=False), Column("content", Text, nullable=False), Column("created_at", DateTime(timezone=True), nullable=False))
+Index("messages_by_session", messages.c.session_id, messages.c.created_at, messages.c.message_id)
+rate_limits = Table("rate_limits", metadata, Column("rate_limit_key", String(255), primary_key=True), Column("window_started_at", DateTime(timezone=True), nullable=False), Column("request_count", Integer, nullable=False))

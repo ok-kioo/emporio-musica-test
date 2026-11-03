@@ -1,18 +1,20 @@
-"""SQLite implementation of the CustomerRepository interface."""
+"""SQLAlchemy Core implementation of the customer repository port."""
 
-import sqlite3
+from sqlalchemy import Engine, select
 
 from src.domain import Customer
+from src.infrastructure.database.schema import customers
 
 
-class SQLiteCustomerRepository:
-    def __init__(self, connection: sqlite3.Connection) -> None:
-        self._connection = connection
+class SQLAlchemyCustomerRepository:
+    def __init__(self, engine: Engine) -> None:
+        self._engine = engine
 
     def find_by_phone(self, phone: str) -> Customer | None:
-        row = self._connection.execute("SELECT * FROM customers WHERE phone = ?", (phone,)).fetchone()
+        with self._engine.connect() as connection:
+            row = connection.execute(select(customers).where(customers.c.phone == phone)).mappings().first()
         return _to_customer(row) if row else None
 
 
-def _to_customer(row: sqlite3.Row) -> Customer:
+def _to_customer(row) -> Customer:
     return Customer(id=row["customer_id"], name=row["name"], phone=row["phone"], email=row["email"], city=row["city"])

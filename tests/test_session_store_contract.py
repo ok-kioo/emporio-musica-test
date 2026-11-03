@@ -1,11 +1,12 @@
-import sqlite3
 from datetime import datetime, timedelta, timezone
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 
 from src.domain import AccessLevel, Message, MessageRole, Session
 from src.domain.repositories import RateLimiter, SessionStore
-from src.infrastructure.database import SQLiteRateLimiter, SQLiteSessionStore, connect
+from src.infrastructure.database import SQLAlchemyRateLimiter, SQLAlchemySessionStoreRepository, create_database_engine
+from src.infrastructure.database.schema import customers
 from src.infrastructure.memory.memory import InMemoryRateLimiter, InMemorySessionStore
 
 
@@ -23,19 +24,17 @@ def _session() -> Session:
 def session_store(request: pytest.FixtureRequest, tmp_path) -> SessionStore:
     if request.param == "memory":
         return InMemorySessionStore()
-    connection = connect(tmp_path / "sessions.sqlite3")
-    connection.execute(
-        "INSERT INTO customers (customer_id, name, phone, email, city) VALUES (1, 'Test customer', '(67) 99812-3456', 'test@example.com', 'Campo Grande')"
-    )
-    connection.commit()
-    return SQLiteSessionStore(connection)
+    engine = create_database_engine(tmp_path / "sessions.sqlite3")
+    with engine.begin() as connection:
+        connection.execute(customers.insert().values(customer_id=1, name="Test customer", phone="(67) 99812-3456", email="test@example.com", city="Campo Grande"))
+    return SQLAlchemySessionStoreRepository(engine)
 
 
 @pytest.fixture(params=["memory", "sqlite"])
 def rate_limiter(request: pytest.FixtureRequest, tmp_path) -> RateLimiter:
     if request.param == "memory":
         return InMemoryRateLimiter()
-    return SQLiteRateLimiter(connect(tmp_path / "rate-limits.sqlite3"))
+    return SQLAlchemyRateLimiter(create_database_engine(tmp_path / "rate-limits.sqlite3"))
 
 
 def test_session_store_contract_preserves_identity_policy_and_message_order(session_store: SessionStore) -> None:
@@ -52,7 +51,7 @@ def test_session_store_contract_preserves_identity_policy_and_message_order(sess
 
 
 def test_session_store_contract_rejects_messages_for_unknown_sessions(session_store: SessionStore) -> None:
-    with pytest.raises((ValueError, sqlite3.IntegrityError)):
+    with pytest.raises((ValueError, IntegrityError)):
         session_store.append_message(Message("m-1", "unknown", MessageRole.CUSTOMER, "Help", NOW))
 
 

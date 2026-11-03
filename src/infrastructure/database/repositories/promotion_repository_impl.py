@@ -1,23 +1,23 @@
-"""SQLite implementation of the PromotionRepository interface."""
+"""SQLAlchemy Core implementation of the promotion repository port."""
 
-import sqlite3
 from decimal import Decimal
 
+from sqlalchemy import Engine, select
+
 from src.domain import Promotion
+from src.infrastructure.database.schema import promotions
 
 
-class SQLitePromotionRepository:
-    def __init__(self, connection: sqlite3.Connection) -> None:
-        self._connection = connection
+class SQLAlchemyPromotionRepository:
+    def __init__(self, engine: Engine) -> None:
+        self._engine = engine
 
     def active_for_product(self, product_id: int) -> list[Promotion]:
-        rows = self._connection.execute(
-            "SELECT * FROM promotions WHERE product_id = ? AND is_active = 1", (product_id,)
-        ).fetchall()
+        statement = select(promotions).where(promotions.c.product_id == product_id, promotions.c.is_active.is_(True))
+        with self._engine.connect() as connection:
+            rows = connection.execute(statement).mappings().all()
         return [_to_promotion(row) for row in rows]
 
-def _to_promotion(row: sqlite3.Row) -> Promotion:
-    return Promotion(
-        id=row["promotion_id"], product_id=row["product_id"], discount_percent=Decimal(str(row["discount_percent"])),
-        description=row["description"], is_active=bool(row["is_active"]),
-    )
+
+def _to_promotion(row) -> Promotion:
+    return Promotion(id=row["promotion_id"], product_id=row["product_id"], discount_percent=Decimal(str(row["discount_percent"])), description=row["description"], is_active=row["is_active"])

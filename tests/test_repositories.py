@@ -3,11 +3,11 @@ from pathlib import Path
 
 from src.domain import OrderStatus, ProductStatus
 from src.infrastructure.database import (
-    SQLiteCustomerRepository,
-    SQLiteOrderRepository,
-    SQLiteProductRepository,
-    SQLitePromotionRepository,
-    connect,
+    SQLAlchemyCustomerRepository,
+    SQLAlchemyOrderRepository,
+    SQLAlchemyProductRepository,
+    SQLAlchemyPromotionRepository,
+    create_database_engine,
     ingest_csv_data,
 )
 
@@ -16,13 +16,13 @@ DATA_DIR = Path(__file__).parents[1] / "data"
 
 
 def _database(tmp_path: Path):
-    connection = connect(tmp_path / "emporio.sqlite3")
-    ingest_csv_data(connection, DATA_DIR)
-    return connection
+    engine = create_database_engine(tmp_path / "emporio.sqlite3")
+    ingest_csv_data(engine, DATA_DIR)
+    return engine
 
 
 def test_product_repository_returns_domain_entity(tmp_path: Path) -> None:
-    products = SQLiteProductRepository(_database(tmp_path))
+    products = SQLAlchemyProductRepository(_database(tmp_path))
 
     product = products.get(81)
 
@@ -33,7 +33,7 @@ def test_product_repository_returns_domain_entity(tmp_path: Path) -> None:
 
 
 def test_catalog_query_is_filtered_by_typed_criteria(tmp_path: Path) -> None:
-    products = SQLiteProductRepository(_database(tmp_path))
+    products = SQLAlchemyProductRepository(_database(tmp_path))
 
     matches = products.search(category_id=5, max_price=Decimal("1000"), query="yamaha")
 
@@ -43,7 +43,7 @@ def test_catalog_query_is_filtered_by_typed_criteria(tmp_path: Path) -> None:
 
 
 def test_order_repository_always_scopes_order_to_customer(tmp_path: Path) -> None:
-    orders = SQLiteOrderRepository(_database(tmp_path))
+    orders = SQLAlchemyOrderRepository(_database(tmp_path))
 
     own_order = orders.get_for_customer(order_id=1, customer_id=3)
     foreign_order = orders.get_for_customer(order_id=1, customer_id=7)
@@ -55,8 +55,8 @@ def test_order_repository_always_scopes_order_to_customer(tmp_path: Path) -> Non
 
 def test_customer_and_promotion_repositories_map_entities(tmp_path: Path) -> None:
     connection = _database(tmp_path)
-    customer = SQLiteCustomerRepository(connection).find_by_phone("(67) 99812-3456")
-    promotions = SQLitePromotionRepository(connection).active_for_product(102)
+    customer = SQLAlchemyCustomerRepository(connection).find_by_phone("(67) 99812-3456")
+    promotions = SQLAlchemyPromotionRepository(connection).active_for_product(102)
 
     assert customer is not None
     assert customer.id == 1
