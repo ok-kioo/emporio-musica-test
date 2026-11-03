@@ -15,7 +15,7 @@ class ToolStatus(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class Source:
-    """Referência auditável a um registro ou trecho consultado."""
+    """Auditable reference to a consulted record or document passage."""
 
     source: str
     record_id: str | int | None = None
@@ -25,12 +25,12 @@ class Source:
 
     def __post_init__(self) -> None:
         if self.page is not None and self.page < 1:
-            raise ValueError("page deve ser maior ou igual a 1")
+            raise ValueError("page must be at least 1")
 
 
 @dataclass(frozen=True, slots=True)
 class ToolResult:
-    """Envelope comum para sucesso, ausência, ambiguidade e falha."""
+    """Common envelope for successful, absent, ambiguous, and failed lookups."""
 
     status: ToolStatus
     data: dict[str, Any] | list[dict[str, Any]] | None = None
@@ -40,7 +40,7 @@ class ToolResult:
 
 @dataclass(frozen=True, slots=True)
 class EvidenceBundle:
-    """Fatos e fontes autorizados para a geração de uma resposta."""
+    """Authorized facts and sources used to generate a response."""
 
     intent: str
     access_level: int
@@ -50,4 +50,4 @@ class EvidenceBundle:
 
     def __post_init__(self) -> None:
         if self.access_level not in (0, 1, 2):
-            raise ValueError("access_level deve estar entre 0 e 2")
+            raise ValueError("access_level must be between 0 and 2")

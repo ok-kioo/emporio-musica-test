@@ -5,6 +5,8 @@ from datetime import date, timedelta
 from enum import StrEnum
 from typing import Any, Mapping
 
+from src.domain.models.results import Source
+
 
 class RuleStatus(StrEnum):
     ELIGIBLE = "eligible"
@@ -29,6 +31,7 @@ class PolicyRule:
     requires_facts: tuple[str, ...]
     reason_codes: Mapping[str, str]
     section: str
+    source: Source
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,6 +40,7 @@ class RuleDescription:
     policy_version: str
     section: str
     requires_facts: tuple[str, ...]
+    source: Source
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +50,7 @@ class RuleResult:
     reason_code: str
     policy_version: str
     facts_used: Mapping[str, Any]
+    sources: tuple[Source, ...] = ()
     missing_facts: tuple[str, ...] = ()
     explanation_hint: str | None = None
 
@@ -57,7 +62,7 @@ class PolicyEngine:
 
     def describe(self, topic_or_rule_id: str, policy_version: str) -> RuleDescription:
         rule = self._rule(topic_or_rule_id, policy_version)
-        return RuleDescription(rule.id, policy_version, rule.section, rule.requires_facts)
+        return RuleDescription(rule.id, policy_version, rule.section, rule.requires_facts, rule.source)
 
     def evaluate(self, rule_id: str, facts: PolicyFacts, policy_version: str) -> RuleResult:
         rule = self._rule(rule_id, policy_version)
@@ -75,13 +80,13 @@ class PolicyEngine:
             return self._installment_minimum(rule, facts, policy_version)
         if rule.evaluator == "exclusion_flag":
             return self._exclusion_flag(rule, facts, policy_version)
-        raise ValueError(f"Avaliador não suportado: {rule.evaluator}")
+        raise ValueError(f"Unsupported evaluator: {rule.evaluator}")
 
     def _rule(self, rule_id: str, version: str) -> PolicyRule:
         try:
             return self._rules_by_version[version][rule_id]
         except KeyError as error:
-            raise ValueError(f"Regra {rule_id!r} não existe na política {version!r}") from error
+            raise ValueError(f"Rule {rule_id!r} does not exist in policy {version!r}") from error
 
     def _days_window(self, rule: PolicyRule, facts: PolicyFacts, version: str) -> RuleResult:
         reference_name = str(rule.params["reference"])
@@ -119,5 +124,6 @@ class PolicyEngine:
                 missing: tuple[str, ...] = ()) -> RuleResult:
         return RuleResult(
             rule_id=rule.id, status=status, reason_code=rule.reason_codes[reason_key], policy_version=version,
-            facts_used=dict(facts.values), missing_facts=missing,
+            facts_used={name: facts.get(name) for name in rule.requires_facts if facts.get(name) is not None},
+            sources=(rule.source,), missing_facts=missing,
         )

@@ -1,4 +1,4 @@
-"""Implementações SQLite das portas de repositório da aplicação."""
+"""SQLite implementation of the application product repository port."""
 
 import json
 import sqlite3

@@ -1,4 +1,4 @@
-"""Configurações centralizadas e reproduzíveis do protótipo."""
+"""Centralized and reproducible prototype configuration."""
 
 from datetime import date
 

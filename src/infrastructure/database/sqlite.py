@@ -1,4 +1,4 @@
-"""SQLite database infrastructure and ingestion"""
+"""SQLite database infrastructure and deterministic CSV ingestion."""
 
 import csv
 import json
@@ -26,10 +26,11 @@ def connect(database_path: Path | str) -> sqlite3.Connection:
     connection = sqlite3.connect(database_path)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA foreign_keys = ON")
+    connection.executescript(_SCHEMA)
     return connection
 
 def ingest_csv_data(connection: sqlite3.Connection, data_dir: Path) -> IngestionSummary:
-    """Substitui o conteúdo operacional pelos CSVs validados de ``data_dir``."""
+    """Replace operational data with validated CSV data from ``data_dir``."""
     connection.executescript(_SCHEMA)
     _clear_tables(connection)
 
@@ -45,7 +46,7 @@ def ingest_csv_data(connection: sqlite3.Connection, data_dir: Path) -> Ingestion
 
 def _rows(path: Path) -> list[dict[str, str]]:
     if not path.is_file():
-        raise FileNotFoundError(f"Arquivo de dados não encontrado: {path}")
+        raise FileNotFoundError(f"Data file was not found: {path}")
     with path.open(encoding="utf-8-sig", newline="") as csv_file:
         return list(csv.DictReader(csv_file))
 
@@ -60,12 +61,12 @@ def _ingest_products(connection: sqlite3.Connection, path: Path) -> int:
     rows = []
     for line, row in enumerate(_rows(path), 2):
         row = _typed(row, path, line, product_id=int, price_brl=float, category_id=int, stock_quantity=int)
-        _require(row["status"] in PRODUCT_STATUSES, path, line, "status de produto inválido")
+        _require(row["status"] in PRODUCT_STATUSES, path, line, "invalid product status")
         try:
             row["specs"] = json.dumps(json.loads(row["specs"]), ensure_ascii=False, sort_keys=True)
             date.fromisoformat(str(row["created_at"]))
         except (ValueError, TypeError, json.JSONDecodeError) as error:
-            raise ValueError(f"{path}:{line}: specs ou created_at inválido") from error
+            raise ValueError(f"{path}:{line}: invalid specs or created_at") from error
         rows.append(row)
     connection.executemany(
         """INSERT INTO products
@@ -80,7 +81,7 @@ def _ingest_promotions(connection: sqlite3.Connection, path: Path) -> int:
     rows = [_typed(row, path, line, promotion_id=int, product_id=int, discount_percent=float, is_active=int)
             for line, row in enumerate(_rows(path), 2)]
     if any(row["is_active"] not in (0, 1) for row in rows):
-        raise ValueError(f"{path}: is_active deve ser 0 ou 1")
+        raise ValueError(f"{path}: is_active must be 0 or 1")
     connection.executemany(
         "INSERT INTO promotions VALUES (:promotion_id, :product_id, :discount_percent, :description, :is_active)", rows
     )
@@ -97,14 +98,14 @@ def _ingest_orders(connection: sqlite3.Connection, path: Path) -> int:
     rows = []
     for line, row in enumerate(_rows(path), 2):
         row = _typed(row, path, line, order_id=int, customer_id=int, total_brl=float)
-        _require(row["status"] in ORDER_STATUSES, path, line, "status de pedido inválido")
-        _require(row["payment_method"] in PAYMENT_METHODS, path, line, "forma de pagamento inválida")
+        _require(row["status"] in ORDER_STATUSES, path, line, "invalid order status")
+        _require(row["payment_method"] in PAYMENT_METHODS, path, line, "invalid payment method")
         try:
             date.fromisoformat(str(row["order_date"]))
             if row["estimated_delivery"]:
                 date.fromisoformat(str(row["estimated_delivery"]))
         except ValueError as error:
-            raise ValueError(f"{path}:{line}: data inválida") from error
+            raise ValueError(f"{path}:{line}: invalid date") from error
         rows.append(row)
     connection.executemany(
         """INSERT INTO orders
@@ -129,7 +130,7 @@ def _typed(row: dict[str, str], path: Path, line: int, **converters: type) -> di
         try:
             typed[field] = converter(row[field])
         except (KeyError, TypeError, ValueError) as error:
-            raise ValueError(f"{path}:{line}: {field} inválido") from error
+            raise ValueError(f"{path}:{line}: invalid {field}") from error
     return typed
 
 
@@ -141,4 +142,3 @@ def _require(condition: bool, path: Path, line: int, message: str) -> None:
 def _clear_tables(connection: sqlite3.Connection) -> None:
     for table in ("order_items", "orders", "promotions", "products", "customers", "categories"):
         connection.execute(f"DELETE FROM {table}")
-

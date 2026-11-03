@@ -6,8 +6,9 @@ from .models.order import Order, OrderItem, OrderStatus, PaymentMethod
 from .models.product import Product, ProductStatus
 from .models.promotion import Promotion
 from .models.results import EvidenceBundle, Source, ToolResult, ToolStatus
+from .models.session import AccessLevel, Message, MessageRole, Session
 
 __all__ = [
-    "Category", "Customer", "EvidenceBundle", "Order", "OrderItem", "OrderStatus",
-    "PaymentMethod", "Product", "ProductStatus", "Promotion", "Source", "ToolResult", "ToolStatus",
+    "AccessLevel", "Category", "Customer", "EvidenceBundle", "Message", "MessageRole", "Order", "OrderItem", "OrderStatus",
+    "PaymentMethod", "Product", "ProductStatus", "Promotion", "Session", "Source", "ToolResult", "ToolStatus",
 ]

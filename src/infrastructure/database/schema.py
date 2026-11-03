@@ -23,4 +23,17 @@ CREATE TABLE IF NOT EXISTS order_items (
     order_id INTEGER NOT NULL REFERENCES orders(order_id), product_id INTEGER NOT NULL REFERENCES products(product_id),
     quantity INTEGER NOT NULL, PRIMARY KEY (order_id, product_id)
 );
+CREATE TABLE IF NOT EXISTS sessions (
+    session_id TEXT PRIMARY KEY, channel_phone TEXT NOT NULL, customer_id INTEGER REFERENCES customers(customer_id),
+    access_level INTEGER NOT NULL CHECK (access_level BETWEEN 0 AND 2), policy_version TEXT NOT NULL,
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS messages (
+    message_id TEXT PRIMARY KEY, session_id TEXT NOT NULL REFERENCES sessions(session_id), role TEXT NOT NULL,
+    content TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS messages_by_session ON messages(session_id, created_at, message_id);
+CREATE TABLE IF NOT EXISTS rate_limits (
+    rate_limit_key TEXT PRIMARY KEY, window_started_at TEXT NOT NULL, request_count INTEGER NOT NULL
+);
 """

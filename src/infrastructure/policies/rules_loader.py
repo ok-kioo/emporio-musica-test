@@ -1,4 +1,4 @@
-"""Valida e carrega regras YAML para o PolicyEngine."""
+"""Validate and load YAML rules for the policy engine."""
 
 from pathlib import Path
 from typing import Any
@@ -7,6 +7,7 @@ import yaml
 from pydantic import BaseModel, Field
 
 from src.domain.policies.policy_engine import PolicyRule
+from src.domain import Source
 
 
 class _Source(BaseModel):
@@ -29,7 +30,7 @@ class _Ruleset(BaseModel):
 
 
 def load_ruleset(path: Path) -> tuple[str, dict[str, PolicyRule]]:
-    """Carrega um arquivo YAML e devolve regras prontas para o domínio."""
+    """Load a YAML ruleset and return domain-ready rules."""
     with path.open(encoding="utf-8") as source:
         raw = yaml.safe_load(source)
     parsed = _Ruleset.model_validate(raw)
@@ -38,9 +39,10 @@ def load_ruleset(path: Path) -> tuple[str, dict[str, PolicyRule]]:
             id=item.id, evaluator=item.type, params=item.params,
             requires_facts=tuple(item.requires_facts), reason_codes=item.reason_codes,
             section=item.source.section,
+            source=Source(source=item.source.document, section=item.source.section),
         )
         for item in parsed.rules
     }
     if len(rules) != len(parsed.rules):
-        raise ValueError("IDs de regra devem ser únicos")
+        raise ValueError("Rule IDs must be unique")
     return parsed.policy_version, rules

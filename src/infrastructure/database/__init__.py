@@ -1,6 +1,7 @@
 """Database infrastructure and SQLite adapters."""
 
 from .sqlite import IngestionSummary, connect, ingest_csv_data
+from .session_store import SQLiteRateLimiter, SQLiteSessionStore
 from .repositories import (
     SQLiteCustomerRepository,
     SQLiteOrderRepository,
@@ -10,5 +11,5 @@ from .repositories import (
 
 __all__ = [
     "IngestionSummary", "SQLiteCustomerRepository", "SQLiteOrderRepository", "SQLiteProductRepository",
-    "SQLitePromotionRepository", "connect", "ingest_csv_data"
+    "SQLitePromotionRepository", "SQLiteRateLimiter", "SQLiteSessionStore", "connect", "ingest_csv_data"
 ]

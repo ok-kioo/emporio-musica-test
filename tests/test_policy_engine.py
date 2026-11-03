@@ -24,6 +24,19 @@ def test_describe_returns_versioned_rule_metadata(engine: PolicyEngine) -> None:
 
     assert description.section == "4.1"
     assert description.policy_version == "2.1"
+    assert description.source.source == "políticas_da_loja.pdf"
+
+
+def test_rule_result_contains_only_decision_facts_and_authorized_source(engine: PolicyEngine) -> None:
+    result = engine.evaluate(
+        "metropolitan_free_shipping",
+        PolicyFacts({"total_brl": Decimal("500"), "untrusted_claim": "free shipping promised"}),
+        "2.1",
+    )
+
+    assert result.facts_used == {"total_brl": Decimal("500")}
+    assert result.sources[0].source == "políticas_da_loja.pdf"
+    assert result.sources[0].section == "5.1"
 
 
 def test_regret_return_is_eligible_before_the_deadline(engine: PolicyEngine) -> None:

@@ -1,1 +1,1 @@
-"""Adaptadores concretos de persistência, recuperação, LLM e tracing."""
+"""Concrete persistence, retrieval, LLM, and tracing adapters."""
