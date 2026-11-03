@@ -43,6 +43,30 @@ class OpenRouterDecisionClient:
 
 
 @dataclass(frozen=True, slots=True)
+class OpenRouterEmbeddingClient:
+    """Semantic embedding adapter, configured explicitly by the composition root."""
+
+    api_key: str
+    model: str = "openai/text-embedding-3-small"
+    endpoint: str = "https://openrouter.ai/api/v1/embeddings"
+
+    def embed(self, texts: list[str]) -> list[tuple[float, ...]]:
+        if not texts:
+            return []
+        payload = _post_json(self.endpoint, self.api_key, {"model": self.model, "input": texts})
+        records = payload.get("data")
+        if not isinstance(records, list) or len(records) != len(texts):
+            raise OpenRouterError("embedding response did not include one vector per input")
+        vectors: list[tuple[float, ...]] = []
+        for record in sorted(records, key=lambda item: item.get("index", -1) if isinstance(item, dict) else -1):
+            embedding = record.get("embedding") if isinstance(record, dict) else None
+            if not isinstance(embedding, list) or not embedding or not all(isinstance(value, (int, float)) for value in embedding):
+                raise OpenRouterError("embedding response contained an invalid vector")
+            vectors.append(tuple(float(value) for value in embedding))
+        return vectors
+
+
+@dataclass(frozen=True, slots=True)
 class OpenRouterTextClient:
     api_key: str
     model: str = "nvidia/nemotron-3-ultra-550b-a55b:free"

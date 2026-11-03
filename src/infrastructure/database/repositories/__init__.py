@@ -5,6 +5,7 @@ from .order_repository_impl import SQLAlchemyOrderRepository
 from .product_repository_impl import SQLAlchemyProductRepository
 from .promotion_repository_impl import SQLAlchemyPromotionRepository
 from .session_repository_impl import SQLAlchemyRateLimitRepository, SQLAlchemySessionRepository
+from .version_registry_repository_impl import SQLAlchemyPolicyVersionRegistryRepository
 
 __all__ = [
     "SQLAlchemyCustomerRepository",
@@ -13,4 +14,5 @@ __all__ = [
     "SQLAlchemyPromotionRepository",
     "SQLAlchemyRateLimitRepository",
     "SQLAlchemySessionRepository",
+    "SQLAlchemyPolicyVersionRegistryRepository",
 ]

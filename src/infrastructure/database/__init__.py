@@ -8,9 +8,10 @@ from .repositories import (
     SQLAlchemyPromotionRepository,
     SQLAlchemyRateLimitRepository,
     SQLAlchemySessionRepository,
+    SQLAlchemyPolicyVersionRegistryRepository,
 )
 
 __all__ = [
     "IngestionSummary", "SQLAlchemyCustomerRepository", "SQLAlchemyOrderRepository", "SQLAlchemyProductRepository",
-    "SQLAlchemyPromotionRepository", "SQLAlchemyRateLimitRepository", "SQLAlchemySessionRepository", "create_database_engine", "ingest_csv_data"
+    "SQLAlchemyPromotionRepository", "SQLAlchemyRateLimitRepository", "SQLAlchemySessionRepository", "SQLAlchemyPolicyVersionRegistryRepository", "create_database_engine", "ingest_csv_data"
 ]

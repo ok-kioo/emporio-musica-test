@@ -36,6 +36,7 @@ class TextClient(Protocol):
 
     def generate(self, *, system_prompt: str, user_prompt: str) -> str: ...
 
+
 __all__ = [
     "CustomerRepository", "DecisionChoice", "DecisionClient", "OrderRepository", "ProductRepository", "PromotionRepository", "RateLimitRepository", "SessionRepository", "TextClient",
 ]

@@ -17,6 +17,9 @@ dependencies = [
 dev = [
     "pytest>=8.0,<9",
 ]
+rag = [
+    "chromadb>=0.5,<2",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

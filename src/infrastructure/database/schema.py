@@ -14,3 +14,4 @@ sessions = Table("sessions", metadata, Column("session_id", String(64), primary_
 messages = Table("messages", metadata, Column("message_id", String(64), primary_key=True), Column("session_id", ForeignKey("sessions.session_id"), nullable=False), Column("role", String(32), nullable=False), Column("content", Text, nullable=False), Column("created_at", DateTime(timezone=True), nullable=False))
 Index("messages_by_session", messages.c.session_id, messages.c.created_at, messages.c.message_id)
 rate_limits = Table("rate_limits", metadata, Column("rate_limit_key", String(255), primary_key=True), Column("window_started_at", DateTime(timezone=True), nullable=False), Column("request_count", Integer, nullable=False))
+policy_versions = Table("policy_versions", metadata, Column("policy_version", String(32), primary_key=True), Column("is_active", Boolean, nullable=False, default=False), Column("activated_at", DateTime(timezone=True), nullable=False))
