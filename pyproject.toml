@@ -24,5 +24,6 @@ markers = [
 ]
 
 [tool.setuptools.packages.find]
-where = ["src"]
-include = ["emporio_agent*"]
+where = ["."]
+include = ["src*"]
+exclude = ["tests*"]
