@@ -1,0 +1,68 @@
+policy_version: "2.1"
+rules:
+  - id: return_regret_window
+    source: {document: manual.pdf, section: "4.1"}
+    type: days_window
+    params: {days: 7, reference: delivery_date}
+    requires_facts: [order_status, delivery_date, evaluation_date]
+    reason_codes: {met: WITHIN_REGRET_WINDOW, not_met: REGRET_WINDOW_EXPIRED, not_started: WINDOW_NOT_STARTED, borderline: REGRET_WINDOW_BORDERLINE, missing: MISSING_RETURN_FACTS}
+  - id: exchange_defect_window
+    source: {document: manual.pdf, section: "4.2"}
+    type: days_window
+    params: {days: 30, reference: order_date}
+    requires_facts: [order_date, evaluation_date]
+    reason_codes: {met: WITHIN_DEFECT_WINDOW, not_met: DEFECT_WINDOW_EXPIRED, not_started: WINDOW_NOT_STARTED, borderline: DEFECT_WINDOW_BORDERLINE, missing: MISSING_DEFECT_FACTS}
+  - id: exchange_preference_window
+    source: {document: manual.pdf, section: "4.3"}
+    type: days_window
+    params: {days: 7, reference: delivery_date}
+    requires_facts: [order_status, delivery_date, evaluation_date]
+    reason_codes: {met: WITHIN_PREFERENCE_WINDOW, not_met: PREFERENCE_WINDOW_EXPIRED, not_started: WINDOW_NOT_STARTED, borderline: PREFERENCE_WINDOW_BORDERLINE, missing: MISSING_PREFERENCE_FACTS}
+  - id: legal_warranty_window
+    source: {document: manual.pdf, section: "4.2"}
+    type: days_window
+    params: {days: 90, reference: order_date}
+    requires_facts: [order_date, evaluation_date]
+    reason_codes: {met: WITHIN_LEGAL_WARRANTY, not_met: LEGAL_WARRANTY_EXPIRED, not_started: WINDOW_NOT_STARTED, borderline: LEGAL_WARRANTY_BORDERLINE, missing: MISSING_WARRANTY_FACTS}
+  - id: metropolitan_free_shipping
+    source: {document: manual.pdf, section: "5.1"}
+    type: threshold
+    params: {field: total_brl, minimum: 500}
+    requires_facts: [total_brl]
+    reason_codes: {met: FREE_SHIPPING_ELIGIBLE, not_met: FREE_SHIPPING_THRESHOLD_NOT_MET, missing: MISSING_ORDER_TOTAL}
+  - id: installments_1_to_3
+    source: {document: manual.pdf, section: "3.1"}
+    type: installment_minimum
+    params: {minimum_installments: 1, maximum_installments: 3, minimum_installment_brl: 50}
+    requires_facts: [installments, total_brl]
+    reason_codes: {met: INSTALLMENT_ELIGIBLE, not_met: INSTALLMENT_MINIMUM_NOT_MET, missing: MISSING_INSTALLMENT_FACTS}
+  - id: installments_4_to_6
+    source: {document: manual.pdf, section: "3.1"}
+    type: installment_minimum
+    params: {minimum_installments: 4, maximum_installments: 6, minimum_installment_brl: 80}
+    requires_facts: [installments, total_brl]
+    reason_codes: {met: INSTALLMENT_ELIGIBLE, not_met: INSTALLMENT_MINIMUM_NOT_MET, missing: MISSING_INSTALLMENT_FACTS}
+  - id: installments_7_to_12
+    source: {document: manual.pdf, section: "3.1"}
+    type: installment_minimum
+    params: {minimum_installments: 7, maximum_installments: 12, minimum_installment_brl: 100}
+    requires_facts: [installments, total_brl]
+    reason_codes: {met: INSTALLMENT_ELIGIBLE, not_met: INSTALLMENT_MINIMUM_NOT_MET, missing: MISSING_INSTALLMENT_FACTS}
+  - id: payment_combination
+    source: {document: manual.pdf, section: "3.1"}
+    type: threshold
+    params: {field: total_brl, minimum: 2000}
+    requires_facts: [total_brl]
+    reason_codes: {met: PAYMENT_COMBINATION_ALLOWED, not_met: PAYMENT_COMBINATION_THRESHOLD_NOT_MET, missing: MISSING_ORDER_TOTAL}
+  - id: pix_discount_non_cumulative
+    source: {document: manual.pdf, section: "6.2"}
+    type: exclusion_flag
+    params: {excluded_facts: [price_is_promotional]}
+    requires_facts: [price_is_promotional]
+    reason_codes: {met: PIX_DISCOUNT_ELIGIBLE, not_met: PIX_DISCOUNT_NOT_CUMULATIVE, missing: MISSING_PROMOTION_STATUS}
+  - id: exchange_item_eligibility
+    source: {document: manual.pdf, section: "4.4"}
+    type: exclusion_flag
+    params: {excluded_facts: [is_personalized, is_final_sale, is_mouthpiece]}
+    requires_facts: [is_personalized, is_final_sale, is_mouthpiece]
+    reason_codes: {met: ITEM_ELIGIBLE, not_met: ITEM_NOT_ELIGIBLE, missing: MISSING_ITEM_ELIGIBILITY_FACTS}

@@ -2,6 +2,7 @@
 
 import sqlite3
 from datetime import date
+from decimal import Decimal
 
 from src.domain import Order, OrderItem, OrderStatus, PaymentMethod
 
