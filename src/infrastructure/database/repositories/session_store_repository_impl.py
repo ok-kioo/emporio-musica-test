@@ -1,7 +1,6 @@
-"""SQLAlchemy Core implementations for session history and rate limiting."""
+"""SQLAlchemy Core implementations for session history"""
 
 from datetime import datetime, timedelta
-
 from sqlalchemy import Engine, select, update
 
 from src.domain import AccessLevel, Message, MessageRole, Session
@@ -33,7 +32,6 @@ class SQLAlchemySessionStoreRepository:
         with self._engine.connect() as connection:
             rows = connection.execute(statement).mappings().all()
         return [_to_message(row) for row in rows]
-
 
 class SQLAlchemyRateLimiter:
     def __init__(self, engine: Engine) -> None:
